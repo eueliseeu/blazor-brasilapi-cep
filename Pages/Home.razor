@@ -1,0 +1,157 @@
+@page "/"
+@using System.Net
+@using BlazorWasmBrasilApiCep.Models
+@inject HttpClient Http
+
+<PageTitle>Consulta CEP - BrasilAPI</PageTitle>
+
+<div class="container-fluid min-vh-100 d-flex flex-column align-items-center justify-content-center py-5" style="background-color: #131313;">
+    <div class="text-center mb-4">
+        <h1 class="fw-bold text-white">Consulta de CEP</h1>
+        <p class="text-secondary mb-0">Digite o CEP para buscar as informações de endereço instantaneamente.</p>
+    </div>
+
+    <div class="card border-0 rounded-4 p-4 w-100 shadow-lg text-white" style="max-width: 550px; background-color: #1e1e1e;">
+        <div class="mb-0">
+            <label for="cepInput" class="form-label fw-semibold text-secondary small">CEP</label>
+            <div class="input-group input-group-lg">
+                <input id="cepInput"
+                       class="form-control text-white border-secondary border-opacity-25 shadow-none"
+                       style="background-color: #2a2a2a;"
+                       @bind="cepDigitado"
+                       @bind:event="oninput"
+                       @onkeydown="OnKeyDown"
+                       placeholder="Ex: 30570310"
+                       maxlength="9"
+                       inputmode="numeric" />
+                <button class="btn btn-primary px-4 fw-semibold" @onclick="ConsultarCep" disabled="@carregando">
+                    @if (carregando)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <span>Buscando...</span>
+                    }
+                    else
+                    {
+                        <span>Consultar</span>
+                    }
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(mensagemErro))
+        {
+            <div class="alert alert-danger d-flex align-items-center mt-3 mb-0 py-2 rounded-3 border-0 bg-danger bg-opacity-10 text-danger" role="alert">
+                <small>@mensagemErro</small>
+            </div>
+        }
+    </div>
+
+    @if (resultado is not null)
+    {
+        <div class="card border-0 rounded-4 mt-4 w-100 p-2 shadow-lg text-white" style="max-width: 550px; background-color: #1e1e1e;">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3 border-bottom border-secondary border-opacity-25 pb-3">
+                    <h5 class="card-title text-success fw-bold m-0">Endereço Encontrado</h5>
+                    <span class="badge border border-success text-success px-3 py-2 rounded-pill fw-normal">@resultado.service</span>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <small class="text-secondary d-block text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Logradouro</small>
+                        <span class="fw-semibold text-white fs-6">@resultado.street</span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <small class="text-secondary d-block text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Bairro</small>
+                        <span class="fw-semibold text-white">@resultado.neighborhood</span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <small class="text-secondary d-block text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Cidade / Estado</small>
+                        <span class="fw-semibold text-white">@resultado.city (@resultado.state)</span>
+                    </div>
+
+                    <div class="col-12">
+                        <small class="text-secondary d-block text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">CEP</small>
+                        <span class="fw-semibold text-white">@resultado.cep</span>
+                    </div>
+                </div>
+
+                @if (resultado.ibge is not null)
+                {
+                    <hr class="my-4 border-secondary opacity-25" />
+                    <h6 class="text-secondary fw-bold mb-3 small text-uppercase" style="letter-spacing: 0.5px;">Dados do IBGE</h6>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <small class="text-secondary d-block">Código Cidade IBGE</small>
+                            <span class="text-white fw-semibold">@resultado.ibge.city</span>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-secondary d-block">Código Estado IBGE</small>
+                            <span class="text-white fw-semibold">@resultado.ibge.state</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string cepDigitado = string.Empty;
+    private Cep? resultado;
+    private string? mensagemErro;
+    private bool carregando;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await ConsultarCep();
+        }
+    }
+
+    private async Task ConsultarCep()
+    {
+        if (carregando) return;
+
+        mensagemErro = null;
+        resultado = null;
+
+        var cep = new string(cepDigitado.Where(char.IsAsciiDigit).ToArray());
+
+        if (cep.Length != 8)
+        {
+            mensagemErro = "O CEP deve conter exatamente 8 dígitos.";
+            return;
+        }
+
+        carregando = true;
+        try
+        {
+            using var response = await Http.GetAsync($"cep/v1/{cep}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                resultado = await response.Content.ReadFromJsonAsync<Cep>();
+            }
+            else if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.BadRequest
+                     && response.Content.Headers.ContentType?.MediaType == "application/json")
+            {
+                mensagemErro = "CEP não encontrado. Confira o número e tente novamente.";
+            }
+            else
+            {
+                mensagemErro = $"A BrasilAPI retornou um erro inesperado ({(int)response.StatusCode}).";
+            }
+        }
+        catch (HttpRequestException)
+        {
+            mensagemErro = "Não foi possível conectar à BrasilAPI. Verifique sua conexão e tente novamente.";
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+}

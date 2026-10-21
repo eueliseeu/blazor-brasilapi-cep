@@ -1,0 +1,49 @@
+# Build results
+bin/
+bin/**
+obj/
+obj/**
+[Bb]in/
+[Oo]bj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio / VS Code
+.vscode/
+.vs/
+*.code-workspace
+
+# Rider
+.idea/
+*.iml
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+*.nuspec
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Publish output
+publish/
+
+# ASP.NET / Blazor generated files
+wwwroot/**/*.map
+
+# Local environment files
+.env
+.env.*
+
+# Temporary files
+*.tmp
+*.temp
